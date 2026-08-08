@@ -45,6 +45,18 @@ function Restore-TestPolicyState {
     }
 }
 
+function Get-TestRegistryValue {
+    param(
+        [string]$Path,
+        [string]$Name
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+    return (Get-Item -LiteralPath $Path).GetValue($Name, $null)
+}
+
 function Wait-TestTask {
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         $task = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
@@ -84,10 +96,14 @@ try {
     if ([int]$config.Version -ne 2) { throw 'Installed configuration version is incorrect.' }
     if ([string]$config.TargetSid -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) { throw 'Installer selected the wrong user SID.' }
 
-    if ((Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'BrowserSignin') -ne 0) { throw 'Edge browser sign-in policy was not applied.' }
-    if ((Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'SyncDisabled') -ne 1) { throw 'Edge sync policy was not applied.' }
-    if ((Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'BrowserSignin') -ne 0) { throw 'Chrome browser sign-in policy was not applied.' }
-    if ((Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'SyncDisabled') -ne 1) { throw 'Chrome sync policy was not applied.' }
+    $edgeSignin = Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'BrowserSignin'
+    $edgeSync = Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'SyncDisabled'
+    $chromeSignin = Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'BrowserSignin'
+    $chromeSync = Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'SyncDisabled'
+    if ($null -eq $edgeSignin -or [int]$edgeSignin -ne 0) { throw 'Edge browser sign-in policy was not applied.' }
+    if ($null -eq $edgeSync -or [int]$edgeSync -ne 1) { throw 'Edge sync policy was not applied.' }
+    if ($null -eq $chromeSignin -or [int]$chromeSignin -ne 0) { throw 'Chrome browser sign-in policy was not applied.' }
+    if ($null -eq $chromeSync -or [int]$chromeSync -ne 1) { throw 'Chrome sync policy was not applied.' }
 
     $desktopRule = @($config.FolderRules) | Where-Object Name -eq 'Desktop' | Select-Object -First 1
     $downloadsRule = @($config.FolderRules) | Where-Object Name -eq 'Downloads' | Select-Object -First 1
@@ -132,8 +148,8 @@ try {
     }
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw 'Uninstall left the scheduled task.' }
     if (Test-Path -LiteralPath $installRoot) { throw 'Uninstall left the installation directory.' }
-    if ((Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'BrowserSignin') -ne 2) { throw 'Uninstall overwrote an externally changed browser policy.' }
-    if ((Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'SyncDisabled') -ne 0) { throw 'Uninstall did not restore the original Chrome policy.' }
+    if ([int](Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'BrowserSignin') -ne 2) { throw 'Uninstall overwrote an externally changed browser policy.' }
+    if ([int](Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'SyncDisabled') -ne 0) { throw 'Uninstall did not restore the original Chrome policy.' }
 
     Write-Host 'Install, scheduled-task, reinstall, policy, and uninstall lifecycle OK'
 }
