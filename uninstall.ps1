@@ -12,12 +12,80 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 
 $taskName = 'MeetingRoomReset-OnStartup'
 $installRoot = Join-Path $env:ProgramData 'MeetingRoomReset'
+$policyBackupPath = Join-Path $installRoot 'browser-policy-backup.json'
+
+function Restore-BrowserPolicyState {
+    param($State)
+
+    $entries = @($State | ForEach-Object { $_ })
+    foreach ($entry in $entries) {
+        if ($null -eq $entry) {
+            Write-Warning 'An empty browser policy backup entry was skipped. Browser policies were left untouched.'
+            continue
+        }
+        $propertyNames = @($entry.PSObject.Properties.Name)
+        if (-not ($propertyNames -contains 'Path') -or
+            -not ($propertyNames -contains 'Name') -or
+            -not ($propertyNames -contains 'Exists') -or
+            -not ($propertyNames -contains 'ManagedValue')) {
+            Write-Warning 'An invalid browser policy backup entry was skipped. Browser policies were left untouched.'
+            continue
+        }
+
+        if (-not (Test-Path -LiteralPath $entry.Path)) {
+            continue
+        }
+
+        $currentKey = Get-Item -LiteralPath $entry.Path
+        if (-not ($currentKey.GetValueNames() -contains $entry.Name)) {
+            continue
+        }
+
+        $currentValue = $currentKey.GetValue($entry.Name)
+        if ([string]$currentValue -ne [string]$entry.ManagedValue) {
+            Write-Warning "A browser policy changed after installation and was left untouched: $($entry.Path)\$($entry.Name)"
+            continue
+        }
+
+        if ([bool]$entry.Exists) {
+            New-ItemProperty `
+                -Path $entry.Path `
+                -Name $entry.Name `
+                -Value $entry.Value `
+                -PropertyType ([string]$entry.Kind) `
+                -Force | Out-Null
+        }
+        else {
+            Remove-ItemProperty -LiteralPath $entry.Path -Name $entry.Name -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+if (Test-Path -LiteralPath $policyBackupPath -PathType Leaf) {
+    try {
+        $policyState = @(Get-Content -LiteralPath $policyBackupPath -Raw | ConvertFrom-Json | ForEach-Object { $_ })
+        Restore-BrowserPolicyState -State $policyState
+    }
+    catch {
+        Write-Warning "Browser policy restoration failed and was skipped: $($_.Exception.Message)"
+    }
+}
+else {
+    Write-Warning 'Browser policy backup was not found. Browser policies were left untouched.'
+}
 
 Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 
-if (Test-Path -LiteralPath $installRoot) {
-    Remove-Item -LiteralPath $installRoot -Recurse -Force
+try {
+    if (Test-Path -LiteralPath $installRoot) {
+        Remove-Item -LiteralPath $installRoot -Recurse -Force
+    }
+}
+catch {
+    $escapedRoot = $installRoot.Replace('"', '""')
+    $delayedDelete = "timeout /t 2 /nobreak >nul & rmdir /s /q `"$escapedRoot`""
+    Start-Process -FilePath "$env:SystemRoot\System32\cmd.exe" -ArgumentList '/d', '/c', $delayedDelete -WindowStyle Hidden
 }
 
-Write-Host 'Meeting Room Reset was removed. Deleted data cannot be restored.' -ForegroundColor Green
+Write-Host 'Meeting Room Reset was removed. Deleted user data cannot be restored.' -ForegroundColor Green
