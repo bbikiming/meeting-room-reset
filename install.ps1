@@ -193,6 +193,13 @@ function Invoke-BrowserPolicyConfiguration {
     foreach ($policy in $Policies) {
         New-Item -Path $policy.Path -Force | Out-Null
         New-ItemProperty -Path $policy.Path -Name $policy.Name -Value ([int]$policy.Value) -PropertyType DWord -Force | Out-Null
+        $key = Get-Item -LiteralPath $policy.Path
+        if (-not ($key.GetValueNames() -contains $policy.Name)) {
+            throw "Browser policy value was not created: $($policy.Path)\$($policy.Name)"
+        }
+        if ([int]$key.GetValue($policy.Name) -ne [int]$policy.Value) {
+            throw "Browser policy verification failed: $($policy.Path)\$($policy.Name)"
+        }
     }
 }
 
