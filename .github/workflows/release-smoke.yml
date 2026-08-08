@@ -1,0 +1,42 @@
+name: Validate Release Download
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag to validate
+        required: true
+        default: v0.2.0
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Download and audit on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-2022
+          - windows-2025
+    steps:
+      - name: Download bootstrap and run package audit
+        shell: powershell
+        env:
+          RELEASE_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}
+        run: |
+          $installer = Join-Path $env:TEMP 'Install-MeetingRoomReset.ps1'
+          $url = "https://github.com/${{ github.repository }}/releases/download/$env:RELEASE_VERSION/Install-MeetingRoomReset.ps1"
+          Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $installer
+          Unblock-File -LiteralPath $installer
+          & $installer -Mode Audit -Version $env:RELEASE_VERSION
+
+          $leftovers = @(Get-ChildItem -LiteralPath $env:TEMP -Directory -Filter "MeetingRoomReset-$env:RELEASE_VERSION-*" -ErrorAction SilentlyContinue)
+          if ($leftovers.Count -gt 0) {
+            throw 'Bootstrap left temporary package directories behind.'
+          }
