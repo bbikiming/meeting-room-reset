@@ -130,11 +130,13 @@ try {
     # Reinstallation must be idempotent and preserve the original policy backup.
     $logMarker = Join-Path $installRoot 'logs/reinstall-marker.log'
     Set-Content -LiteralPath $logMarker 'preserve'
+    $policyBackupBefore = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json)
+    $policyBackupFingerprint = $policyBackupBefore | ConvertTo-Json -Depth 5 -Compress
     & $installScript -Mode Install -TargetUser $targetUser -AcceptDataLoss
     if (-not (Test-Path -LiteralPath $logMarker)) { throw 'Reinstall discarded existing logs.' }
-    $policyBackup = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json)
-    $chromeSyncBackup = $policyBackup | Where-Object { $_.Path -eq 'HKLM:\SOFTWARE\Policies\Google\Chrome' -and $_.Name -eq 'SyncDisabled' }
-    if (-not [bool]$chromeSyncBackup.Exists -or [int]$chromeSyncBackup.Value -ne 0) { throw 'Reinstall overwrote the original browser policy backup.' }
+    $policyBackupAfter = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json)
+    if (($policyBackupAfter | ConvertTo-Json -Depth 5 -Compress) -ne $policyBackupFingerprint) { throw 'Reinstall overwrote the original browser policy backup.' }
+    $chromeSyncBackup = $policyBackupBefore | Where-Object { $_.Path -eq 'HKLM:\SOFTWARE\Policies\Google\Chrome' -and $_.Name -eq 'SyncDisabled' }
 
     # A policy changed by IT after installation must not be overwritten by uninstall.
     Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'NonRemovableProfileEnabled' -Value 1
@@ -145,7 +147,13 @@ try {
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw 'Uninstall left the scheduled task.' }
     if (Test-Path -LiteralPath $installRoot) { throw 'Uninstall left the installation directory.' }
     if ([int](Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'NonRemovableProfileEnabled') -ne 1) { throw 'Uninstall overwrote an externally changed browser policy.' }
-    if ([int](Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'SyncDisabled') -ne 0) { throw 'Uninstall did not restore the original Chrome policy.' }
+    $chromeSyncAfterUninstall = Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'SyncDisabled'
+    if ([bool]$chromeSyncBackup.Exists) {
+        if ($null -eq $chromeSyncAfterUninstall -or [int]$chromeSyncAfterUninstall -ne [int]$chromeSyncBackup.Value) { throw 'Uninstall did not restore the original Chrome policy.' }
+    }
+    elseif ($null -ne $chromeSyncAfterUninstall) {
+        throw 'Uninstall left a Chrome policy that did not exist before installation.'
+    }
 
     Write-Host 'Install, scheduled-task, reinstall, policy, and uninstall lifecycle OK'
 }
