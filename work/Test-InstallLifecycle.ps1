@@ -130,7 +130,7 @@ try {
     # Reinstallation must be idempotent and preserve the original policy backup.
     $logMarker = Join-Path $installRoot 'logs/reinstall-marker.log'
     Set-Content -LiteralPath $logMarker 'preserve'
-    $policyBackupBefore = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json)
+    $policyBackupBefore = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json | ForEach-Object { $_ })
     if ($policyBackupBefore.Count -ne $policyDefinitions.Count) { throw 'Browser policy backup is not a flat JSON array.' }
     foreach ($backupEntry in $policyBackupBefore) {
         if (-not ($backupEntry.PSObject.Properties.Name -contains 'Path')) { throw 'Browser policy backup contains an invalid entry.' }
@@ -138,7 +138,7 @@ try {
     $policyBackupFingerprint = $policyBackupBefore | ConvertTo-Json -Depth 5 -Compress
     & $installScript -Mode Install -TargetUser $targetUser -AcceptDataLoss
     if (-not (Test-Path -LiteralPath $logMarker)) { throw 'Reinstall discarded existing logs.' }
-    $policyBackupAfter = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json)
+    $policyBackupAfter = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json | ForEach-Object { $_ })
     if (($policyBackupAfter | ConvertTo-Json -Depth 5 -Compress) -ne $policyBackupFingerprint) { throw 'Reinstall overwrote the original browser policy backup.' }
     $chromeSyncBackup = $policyBackupBefore | Where-Object { $_.Path -eq 'HKLM:\SOFTWARE\Policies\Google\Chrome' -and $_.Name -eq 'SyncDisabled' }
 

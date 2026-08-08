@@ -62,7 +62,7 @@ function Restore-BrowserPolicyState {
 }
 
 if (Test-Path -LiteralPath $policyBackupPath -PathType Leaf) {
-    $policyState = @(Get-Content -LiteralPath $policyBackupPath -Raw | ConvertFrom-Json)
+    $policyState = @(Get-Content -LiteralPath $policyBackupPath -Raw | ConvertFrom-Json | ForEach-Object { $_ })
     Restore-BrowserPolicyState -State $policyState
 }
 else {

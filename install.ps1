@@ -353,7 +353,7 @@ if (Test-Path -LiteralPath $backupRoot) {
 $rollbackPolicyState = @(Get-BrowserPolicyState -Policies $browserPolicies)
 $permanentPolicyState = $rollbackPolicyState
 if (Test-Path -LiteralPath $policyBackupPath -PathType Leaf) {
-    $permanentPolicyState = @(Get-Content -LiteralPath $policyBackupPath -Raw | ConvertFrom-Json)
+    $permanentPolicyState = @(Get-Content -LiteralPath $policyBackupPath -Raw | ConvertFrom-Json | ForEach-Object { $_ })
 }
 
 New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
