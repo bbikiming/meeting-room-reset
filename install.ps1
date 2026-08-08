@@ -150,11 +150,22 @@ function Get-PathSafetyIssue {
         return "A configured path is outside the selected user profile: $Path"
     }
 
-    if (Test-Path -LiteralPath $Path) {
-        $item = Get-Item -LiteralPath $Path -Force
-        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-            return "A configured path is a junction or symbolic link: $Path"
+    $candidatePath = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    $profileRoot = [IO.Path]::GetFullPath($ProfilePath).TrimEnd('\', '/')
+    $currentPath = $candidatePath
+    while ($currentPath.Length -gt $profileRoot.Length) {
+        if (Test-Path -LiteralPath $currentPath) {
+            $item = Get-Item -LiteralPath $currentPath -Force
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                return "A configured path traverses a junction or symbolic link: $Path"
+            }
         }
+
+        $parentPath = [IO.Path]::GetDirectoryName($currentPath)
+        if ([string]::IsNullOrWhiteSpace($parentPath) -or $parentPath -eq $currentPath) {
+            return "A configured path could not be validated safely: $Path"
+        }
+        $currentPath = $parentPath.TrimEnd('\', '/')
     }
 
     return $null
@@ -342,7 +353,6 @@ $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyConti
 $existingTaskXml = $null
 if ($null -ne $existingTask) {
     $existingTaskXml = Export-ScheduledTask -TaskName $taskName
-    Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 }
 
 if (Test-Path -LiteralPath $stageRoot) {
@@ -408,6 +418,9 @@ $settings = New-ScheduledTaskSettingsSet `
     -DontStopIfGoingOnBatteries
 
 try {
+    if ($null -ne $existingTask) {
+        Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    }
     if (Test-Path -LiteralPath $installRoot) {
         Move-Item -LiteralPath $installRoot -Destination $backupRoot
     }

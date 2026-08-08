@@ -128,7 +128,7 @@ try {
     New-ItemProperty -Path $shellKeyPath -Name $downloadsName -Value $junctionPath -PropertyType ExpandString -Force | Out-Null
     Assert-InstallFailure `
         -Action { & $installScript -Mode Audit -TargetUser $targetUser } `
-        -ExpectedMessage 'junction or symbolic link' `
+        -ExpectedMessage 'traverses a junction or symbolic link' `
         -Scenario 'Junction Downloads folder'
 
     Write-Host 'Install guard scenarios OK'

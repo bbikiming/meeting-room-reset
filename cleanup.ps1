@@ -43,7 +43,32 @@ function Test-SafeUserPath {
 
     $candidate = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
     $separator = [IO.Path]::DirectorySeparatorChar
-    return $candidate.StartsWith($profileRoot + $separator, [StringComparison]::OrdinalIgnoreCase)
+    if (-not $candidate.StartsWith($profileRoot + $separator, [StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+
+    $currentPath = $candidate
+    while ($currentPath.Length -gt $profileRoot.Length) {
+        try {
+            if (Test-Path -LiteralPath $currentPath) {
+                $currentItem = Get-Item -LiteralPath $currentPath -Force -ErrorAction Stop
+                if (($currentItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                    return $false
+                }
+            }
+        }
+        catch {
+            return $false
+        }
+
+        $parentPath = [IO.Path]::GetDirectoryName($currentPath)
+        if ([string]::IsNullOrWhiteSpace($parentPath) -or $parentPath -eq $currentPath) {
+            return $false
+        }
+        $currentPath = $parentPath.TrimEnd('\', '/')
+    }
+
+    return $currentPath.Equals($profileRoot, [StringComparison]::OrdinalIgnoreCase)
 }
 
 function Invoke-SafeUserTreeRemoval {

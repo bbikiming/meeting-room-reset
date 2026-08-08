@@ -106,6 +106,18 @@ if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
     if (Test-Path -LiteralPath $normalParent) { throw 'Folder containing a nested junction was not deleted.' }
     if (-not (Test-Path -LiteralPath (Join-Path $nestedJunctionTarget 'must-remain.txt'))) { throw 'Nested junction target was deleted.' }
 
+    # A configured path must also be rejected when an intermediate parent is a junction.
+    $ancestorJunctionTarget = Join-Path $outside 'ancestor-junction-target'
+    $ancestorJunction = Join-Path $testProfile 'RedirectedParent'
+    $pathThroughJunction = Join-Path $ancestorJunction 'Downloads'
+    New-Item -ItemType Directory -Path $ancestorJunctionTarget -Force | Out-Null
+    New-Item -ItemType Junction -Path $ancestorJunction -Target $ancestorJunctionTarget | Out-Null
+    New-Item -ItemType Directory -Path $pathThroughJunction -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $pathThroughJunction 'must-remain.txt') 'safe'
+    Write-TestConfig -FolderRules @([ordered]@{ Path = $pathThroughJunction; PreserveExtensions = @(); PreserveNames = @() }) -BrowserRoots @()
+    if ((Invoke-CleanupProcess) -eq 0) { throw 'Path through an ancestor junction should have produced a failure result.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $pathThroughJunction 'must-remain.txt'))) { throw 'Data behind an ancestor junction was deleted.' }
+
     # A configured junction must be rejected without touching its target.
     $junctionTarget = Join-Path $outside 'junction-target'
     $junctionRoot = Join-Path $testProfile 'RedirectedDownloads'

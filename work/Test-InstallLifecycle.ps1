@@ -159,6 +159,16 @@ try {
         throw 'Uninstall left a Chrome policy that did not exist before installation.'
     }
 
+    # A damaged policy backup must not prevent task and program removal.
+    New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'uninstall.ps1') -Destination (Join-Path $installRoot 'uninstall.ps1') -Force
+    Set-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Value '{not-valid-json'
+    & (Join-Path $installRoot 'uninstall.ps1')
+    for ($attempt = 0; $attempt -lt 10 -and (Test-Path -LiteralPath $installRoot); $attempt++) {
+        Start-Sleep -Seconds 1
+    }
+    if (Test-Path -LiteralPath $installRoot) { throw 'Uninstall with a damaged policy backup left the installation directory.' }
+
     Write-Host 'Install, scheduled-task, reinstall, policy, and uninstall lifecycle OK'
 }
 finally {

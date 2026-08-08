@@ -42,7 +42,7 @@ function Restore-BrowserPolicyState {
         }
 
         $currentValue = $currentKey.GetValue($entry.Name)
-        if ([int]$currentValue -ne [int]$entry.ManagedValue) {
+        if ([string]$currentValue -ne [string]$entry.ManagedValue) {
             Write-Warning "A browser policy changed after installation and was left untouched: $($entry.Path)\$($entry.Name)"
             continue
         }
@@ -62,8 +62,13 @@ function Restore-BrowserPolicyState {
 }
 
 if (Test-Path -LiteralPath $policyBackupPath -PathType Leaf) {
-    $policyState = @(Get-Content -LiteralPath $policyBackupPath -Raw | ConvertFrom-Json | ForEach-Object { $_ })
-    Restore-BrowserPolicyState -State $policyState
+    try {
+        $policyState = @(Get-Content -LiteralPath $policyBackupPath -Raw | ConvertFrom-Json | ForEach-Object { $_ })
+        Restore-BrowserPolicyState -State $policyState
+    }
+    catch {
+        Write-Warning "Browser policy restoration failed and was skipped: $($_.Exception.Message)"
+    }
 }
 else {
     Write-Warning 'Browser policy backup was not found. Browser policies were left untouched.'
