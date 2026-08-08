@@ -131,6 +131,10 @@ try {
     $logMarker = Join-Path $installRoot 'logs/reinstall-marker.log'
     Set-Content -LiteralPath $logMarker 'preserve'
     $policyBackupBefore = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json)
+    if ($policyBackupBefore.Count -ne $policyDefinitions.Count) { throw 'Browser policy backup is not a flat JSON array.' }
+    foreach ($backupEntry in $policyBackupBefore) {
+        if (-not ($backupEntry.PSObject.Properties.Name -contains 'Path')) { throw 'Browser policy backup contains an invalid entry.' }
+    }
     $policyBackupFingerprint = $policyBackupBefore | ConvertTo-Json -Depth 5 -Compress
     & $installScript -Mode Install -TargetUser $targetUser -AcceptDataLoss
     if (-not (Test-Path -LiteralPath $logMarker)) { throw 'Reinstall discarded existing logs.' }

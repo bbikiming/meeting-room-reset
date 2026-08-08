@@ -17,7 +17,21 @@ $policyBackupPath = Join-Path $installRoot 'browser-policy-backup.json'
 function Restore-BrowserPolicyState {
     param($State)
 
-    foreach ($entry in @($State)) {
+    $entries = @($State | ForEach-Object { $_ })
+    foreach ($entry in $entries) {
+        if ($null -eq $entry) {
+            Write-Warning 'An empty browser policy backup entry was skipped. Browser policies were left untouched.'
+            continue
+        }
+        $propertyNames = @($entry.PSObject.Properties.Name)
+        if (-not ($propertyNames -contains 'Path') -or
+            -not ($propertyNames -contains 'Name') -or
+            -not ($propertyNames -contains 'Exists') -or
+            -not ($propertyNames -contains 'ManagedValue')) {
+            Write-Warning 'An invalid browser policy backup entry was skipped. Browser policies were left untouched.'
+            continue
+        }
+
         if (-not (Test-Path -LiteralPath $entry.Path)) {
             continue
         }

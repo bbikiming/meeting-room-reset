@@ -206,7 +206,20 @@ function Invoke-BrowserPolicyConfiguration {
 function Restore-BrowserPolicyState {
     param($State)
 
-    foreach ($entry in @($State)) {
+    $entries = @($State | ForEach-Object { $_ })
+    foreach ($entry in $entries) {
+        if ($null -eq $entry) {
+            Write-Warning 'An empty browser policy backup entry was skipped during rollback.'
+            continue
+        }
+        $propertyNames = @($entry.PSObject.Properties.Name)
+        if (-not ($propertyNames -contains 'Path') -or
+            -not ($propertyNames -contains 'Name') -or
+            -not ($propertyNames -contains 'Exists')) {
+            Write-Warning 'An invalid browser policy backup entry was skipped during rollback.'
+            continue
+        }
+
         if ([bool]$entry.Exists) {
             New-Item -Path $entry.Path -Force | Out-Null
             New-ItemProperty -Path $entry.Path -Name $entry.Name -Value $entry.Value -PropertyType ([string]$entry.Kind) -Force | Out-Null
@@ -376,7 +389,7 @@ $config = [ordered]@{
 }
 
 $config | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $stageRoot 'config.json') -Encoding UTF8
-$permanentPolicyState | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $stageRoot 'browser-policy-backup.json') -Encoding UTF8
+ConvertTo-Json -InputObject @($permanentPolicyState) -Depth 5 | Set-Content -LiteralPath (Join-Path $stageRoot 'browser-policy-backup.json') -Encoding UTF8
 
 $powerShellPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 $arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$installRoot\cleanup.ps1`" -ConfigPath `"$configPath`""
