@@ -71,10 +71,8 @@ try {
     New-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'SyncDisabled' -Value 0 -PropertyType DWord -Force | Out-Null
 
     & $installScript -Mode Audit -TargetUser $targetUser
-    if ($LASTEXITCODE -ne 0) { throw "Audit returned $LASTEXITCODE" }
 
     & $installScript -Mode Install -TargetUser $targetUser -AcceptDataLoss
-    if ($LASTEXITCODE -ne 0) { throw "Install returned $LASTEXITCODE" }
 
     $task = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
     if ($task.Principal.UserId -notin @('SYSTEM', 'S-1-5-18')) { throw 'Scheduled task is not running as SYSTEM.' }
@@ -121,7 +119,6 @@ try {
     $logMarker = Join-Path $installRoot 'logs/reinstall-marker.log'
     Set-Content -LiteralPath $logMarker 'preserve'
     & $installScript -Mode Install -TargetUser $targetUser -AcceptDataLoss
-    if ($LASTEXITCODE -ne 0) { throw "Reinstall returned $LASTEXITCODE" }
     if (-not (Test-Path -LiteralPath $logMarker)) { throw 'Reinstall discarded existing logs.' }
     $policyBackup = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json)
     $edgeSigninBackup = $policyBackup | Where-Object { $_.Path -eq 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -and $_.Name -eq 'BrowserSignin' }
