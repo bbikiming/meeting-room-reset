@@ -100,6 +100,12 @@ try {
     $edgeSync = Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'SyncDisabled'
     $chromeSignin = Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'BrowserSignin'
     $chromeSync = Get-TestRegistryValue -Path 'HKLM:\SOFTWARE\Policies\Google\Chrome' -Name 'SyncDisabled'
+    $edgeKey = Get-Item -LiteralPath 'HKLM:\SOFTWARE\Policies\Microsoft\Edge'
+    $chromeKey = Get-Item -LiteralPath 'HKLM:\SOFTWARE\Policies\Google\Chrome'
+    Write-Host "Edge policy names: $([string]::Join(',', $edgeKey.GetValueNames()))"
+    Write-Host "Edge values: BrowserSignin=$edgeSignin SyncDisabled=$edgeSync"
+    Write-Host "Chrome policy names: $([string]::Join(',', $chromeKey.GetValueNames()))"
+    Write-Host "Chrome values: BrowserSignin=$chromeSignin SyncDisabled=$chromeSync"
     if ($null -eq $edgeSignin -or [int]$edgeSignin -ne 0) { throw 'Edge browser sign-in policy was not applied.' }
     if ($null -eq $edgeSync -or [int]$edgeSync -ne 1) { throw 'Edge sync policy was not applied.' }
     if ($null -eq $chromeSignin -or [int]$chromeSignin -ne 0) { throw 'Chrome browser sign-in policy was not applied.' }
