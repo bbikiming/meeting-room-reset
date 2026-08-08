@@ -133,8 +133,8 @@ try {
     & $installScript -Mode Install -TargetUser $targetUser -AcceptDataLoss
     if (-not (Test-Path -LiteralPath $logMarker)) { throw 'Reinstall discarded existing logs.' }
     $policyBackup = @(Get-Content -LiteralPath (Join-Path $installRoot 'browser-policy-backup.json') -Raw | ConvertFrom-Json)
-    $edgeSigninBackup = $policyBackup | Where-Object { $_.Path -eq 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -and $_.Name -eq 'BrowserSignin' }
-    if (-not [bool]$edgeSigninBackup.Exists -or [int]$edgeSigninBackup.Value -ne 1) { throw 'Reinstall overwrote the original browser policy backup.' }
+    $chromeSyncBackup = $policyBackup | Where-Object { $_.Path -eq 'HKLM:\SOFTWARE\Policies\Google\Chrome' -and $_.Name -eq 'SyncDisabled' }
+    if (-not [bool]$chromeSyncBackup.Exists -or [int]$chromeSyncBackup.Value -ne 0) { throw 'Reinstall overwrote the original browser policy backup.' }
 
     # A policy changed by IT after installation must not be overwritten by uninstall.
     Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name 'NonRemovableProfileEnabled' -Value 1
