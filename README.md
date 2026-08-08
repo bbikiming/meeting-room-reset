@@ -19,7 +19,7 @@
 
 ```powershell
 $installer = "$env:TEMP\Install-MeetingRoomReset.ps1"
-Invoke-WebRequest -UseBasicParsing "https://github.com/bbikiming/meeting-room-reset/releases/download/v0.1.0/Install-MeetingRoomReset.ps1" -OutFile $installer
+Invoke-WebRequest -UseBasicParsing "https://github.com/bbikiming/meeting-room-reset/releases/download/v0.1.1/Install-MeetingRoomReset.ps1" -OutFile $installer
 Unblock-File $installer
 & $installer -Mode Audit
 ```

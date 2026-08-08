@@ -48,3 +48,4 @@ if ($LASTEXITCODE -eq 0) { throw 'Unsafe path should have produced a failure res
 if (-not (Test-Path (Join-Path $outside 'must-remain.txt'))) { throw 'Unsafe outside path was deleted.' }
 
 Write-Host 'Cleanup behavior and path safety OK'
+exit 0

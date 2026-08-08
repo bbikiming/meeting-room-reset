@@ -9,7 +9,7 @@ param(
 
     [switch]$IncludeCloudDesktop,
 
-    [string]$Version = 'v0.1.0'
+    [string]$Version = 'v0.1.1'
 )
 
 Set-StrictMode -Version 2.0
