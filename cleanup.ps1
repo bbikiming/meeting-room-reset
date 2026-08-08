@@ -46,21 +46,34 @@ function Test-SafeUserPath {
     return $candidate.StartsWith($profileRoot + $separator, [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Invoke-SafeUserTreeRemoval {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $currentItem = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    $isReparsePoint = ($currentItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+    if ($isReparsePoint -or -not $currentItem.PSIsContainer) {
+        Remove-Item -LiteralPath $currentItem.FullName -Force -ErrorAction Stop
+        return
+    }
+
+    foreach ($child in @(Get-ChildItem -LiteralPath $currentItem.FullName -Force -ErrorAction Stop)) {
+        Invoke-SafeUserTreeRemoval -Path $child.FullName
+    }
+    Remove-Item -LiteralPath $currentItem.FullName -Force -ErrorAction Stop
+}
+
 function Invoke-UserItemRemoval {
     param([Parameter(Mandatory = $true)]$Item)
 
     for ($attempt = 1; $attempt -le 3; $attempt++) {
         try {
-            $isReparsePoint = ($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
-            if ($isReparsePoint) {
-                Remove-Item -LiteralPath $Item.FullName -Force -ErrorAction Stop
-            }
-            else {
-                Remove-Item -LiteralPath $Item.FullName -Recurse -Force -ErrorAction Stop
-            }
+            Invoke-SafeUserTreeRemoval -Path $Item.FullName
             return $true
         }
         catch {
+            if (-not (Get-Item -LiteralPath $Item.FullName -Force -ErrorAction SilentlyContinue)) {
+                return $true
+            }
             if ($attempt -lt 3) {
                 Start-Sleep -Milliseconds 350
             }

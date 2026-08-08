@@ -94,6 +94,18 @@ if ((Invoke-CleanupProcess) -eq 0) { throw 'Outside log path should have produce
 if (Test-Path -LiteralPath $outsideLogs) { throw 'Unsafe log directory was created.' }
 
 if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+    # A junction nested inside a normal folder must be unlinked without traversing its target.
+    $nestedJunctionTarget = Join-Path $outside 'nested-junction-target'
+    $normalParent = Join-Path $downloads 'normal-parent'
+    $nestedJunction = Join-Path $normalParent 'nested-junction'
+    New-Item -ItemType Directory -Path $nestedJunctionTarget, $normalParent -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $nestedJunctionTarget 'must-remain.txt') 'safe'
+    New-Item -ItemType Junction -Path $nestedJunction -Target $nestedJunctionTarget | Out-Null
+    Write-TestConfig -FolderRules @([ordered]@{ Path = $downloads; PreserveExtensions = @(); PreserveNames = @() }) -BrowserRoots @()
+    if ((Invoke-CleanupProcess) -ne 0) { throw 'Nested junction cleanup returned a failure result.' }
+    if (Test-Path -LiteralPath $normalParent) { throw 'Folder containing a nested junction was not deleted.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $nestedJunctionTarget 'must-remain.txt'))) { throw 'Nested junction target was deleted.' }
+
     # A configured junction must be rejected without touching its target.
     $junctionTarget = Join-Path $outside 'junction-target'
     $junctionRoot = Join-Path $testProfile 'RedirectedDownloads'
