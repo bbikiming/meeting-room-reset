@@ -95,22 +95,24 @@ function Get-TargetFolderSet {
 
     if (Test-Path -LiteralPath $environmentPath) {
         $environmentValues = Get-ItemProperty -LiteralPath $environmentPath
-        if ($environmentValues.PSObject.Properties.Name -contains 'OneDriveCommercial') {
+        $environmentPropertyNames = @($environmentValues.PSObject.Properties | ForEach-Object { $_.Name })
+        if ($environmentPropertyNames -contains 'OneDriveCommercial') {
             $oneDrive = [string]$environmentValues.OneDriveCommercial
         }
-        elseif ($environmentValues.PSObject.Properties.Name -contains 'OneDrive') {
+        elseif ($environmentPropertyNames -contains 'OneDrive') {
             $oneDrive = [string]$environmentValues.OneDrive
         }
     }
 
     if (Test-Path -LiteralPath $userShellPath) {
         $shellValues = Get-ItemProperty -LiteralPath $userShellPath
-        if ($shellValues.PSObject.Properties.Name -contains 'Desktop') {
+        $shellPropertyNames = @($shellValues.PSObject.Properties | ForEach-Object { $_.Name })
+        if ($shellPropertyNames -contains 'Desktop') {
             $desktop = Expand-TargetUserPath -RawPath ([string]$shellValues.Desktop) -ProfilePath $TargetProfile.ProfilePath -OneDrivePath $oneDrive
         }
 
         $downloadsGuid = '{374DE290-123F-4565-9164-39C4925E467B}'
-        if ($shellValues.PSObject.Properties.Name -contains $downloadsGuid) {
+        if ($shellPropertyNames -contains $downloadsGuid) {
             $downloads = Expand-TargetUserPath -RawPath ([string]$shellValues.$downloadsGuid) -ProfilePath $TargetProfile.ProfilePath -OneDrivePath $oneDrive
         }
     }

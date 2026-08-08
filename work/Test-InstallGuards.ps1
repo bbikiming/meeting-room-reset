@@ -17,15 +17,16 @@ function Get-RegistryValueSnapshot {
     )
 
     if (-not (Test-Path -LiteralPath $Path)) {
-        return [pscustomobject]@{ Exists = $false; Value = $null; Kind = 'String' }
+        return [pscustomobject]@{ KeyExists = $false; Exists = $false; Value = $null; Kind = 'String' }
     }
 
     $key = Get-Item -LiteralPath $Path
     if (-not ($key.GetValueNames() -contains $Name)) {
-        return [pscustomobject]@{ Exists = $false; Value = $null; Kind = 'String' }
+        return [pscustomobject]@{ KeyExists = $true; Exists = $false; Value = $null; Kind = 'String' }
     }
 
     return [pscustomobject]@{
+        KeyExists = $true
         Exists = $true
         Value = $key.GetValue($Name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         Kind = [string]$key.GetValueKind($Name)
@@ -45,6 +46,13 @@ function Restore-RegistryValueSnapshot {
     }
     elseif (Test-Path -LiteralPath $Path) {
         Remove-ItemProperty -LiteralPath $Path -Name $Name -ErrorAction SilentlyContinue
+    }
+
+    if (-not [bool]$Snapshot.KeyExists -and (Test-Path -LiteralPath $Path)) {
+        $key = Get-Item -LiteralPath $Path
+        if ($key.GetValueNames().Count -eq 0 -and $key.GetSubKeyNames().Count -eq 0) {
+            Remove-Item -LiteralPath $Path -Force
+        }
     }
 }
 
