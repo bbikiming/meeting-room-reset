@@ -13,10 +13,17 @@ if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
 
 $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 $profileRoot = [IO.Path]::GetFullPath([string]$config.ProfilePath).TrimEnd('\', '/')
+$configRoot = [IO.Path]::GetFullPath((Split-Path -Parent $ConfigPath)).TrimEnd('\', '/')
 $logDirectory = [string]$config.LogDirectory
 
 if ([string]::IsNullOrWhiteSpace($profileRoot) -or $profileRoot.Length -lt 4) {
     throw 'Unsafe or invalid profile path in configuration.'
+}
+
+$resolvedLogDirectory = [IO.Path]::GetFullPath($logDirectory).TrimEnd('\', '/')
+$pathSeparator = [IO.Path]::DirectorySeparatorChar
+if (-not $resolvedLogDirectory.StartsWith($configRoot + $pathSeparator, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Unsafe log directory in configuration.'
 }
 
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
@@ -39,6 +46,30 @@ function Test-SafeUserPath {
     return $candidate.StartsWith($profileRoot + $separator, [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Invoke-UserItemRemoval {
+    param([Parameter(Mandatory = $true)]$Item)
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            $isReparsePoint = ($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+            if ($isReparsePoint) {
+                Remove-Item -LiteralPath $Item.FullName -Force -ErrorAction Stop
+            }
+            else {
+                Remove-Item -LiteralPath $Item.FullName -Recurse -Force -ErrorAction Stop
+            }
+            return $true
+        }
+        catch {
+            if ($attempt -lt 3) {
+                Start-Sleep -Milliseconds 350
+            }
+        }
+    }
+
+    return $false
+}
+
 function Clear-UserDirectory {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -56,7 +87,21 @@ function Clear-UserDirectory {
         return
     }
 
-    $items = @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue)
+    try {
+        $directory = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+        if (($directory.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            $script:errorCount++
+            Write-ResetLog 'Skipped a configured directory because it is a reparse point.'
+            return
+        }
+        $items = @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction Stop)
+    }
+    catch {
+        $script:errorCount++
+        Write-ResetLog 'Failed to enumerate a configured directory.'
+        return
+    }
+
     foreach ($item in $items) {
         $preserve = $false
         if (-not $item.PSIsContainer) {
@@ -72,11 +117,10 @@ function Clear-UserDirectory {
             continue
         }
 
-        try {
-            Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction Stop
+        if (Invoke-UserItemRemoval -Item $item) {
             $script:removedCount++
         }
-        catch {
+        else {
             $script:errorCount++
         }
     }

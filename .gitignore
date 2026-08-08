@@ -2,4 +2,4 @@
 dist/
 *.log
 work/*
-!work/Test-Cleanup.ps1
+!work/Test-*.ps1

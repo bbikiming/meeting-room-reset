@@ -6,7 +6,14 @@ on:
 
 jobs:
   validate:
-    runs-on: windows-latest
+    name: Windows PowerShell 5.1 on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-2022
+          - windows-2025
     steps:
       - uses: actions/checkout@v5
 
@@ -30,3 +37,7 @@ jobs:
       - name: Test cleanup behavior and path safety
         shell: powershell
         run: .\work\Test-Cleanup.ps1
+
+      - name: Test full install and uninstall lifecycle
+        shell: powershell
+        run: .\work\Test-InstallLifecycle.ps1
