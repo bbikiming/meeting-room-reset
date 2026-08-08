@@ -38,6 +38,10 @@ jobs:
         shell: powershell
         run: .\work\Test-Cleanup.ps1
 
+      - name: Test installer safety guards
+        shell: powershell
+        run: .\work\Test-InstallGuards.ps1
+
       - name: Test full install and uninstall lifecycle
         shell: powershell
         run: .\work\Test-InstallLifecycle.ps1
