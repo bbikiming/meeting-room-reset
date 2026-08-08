@@ -51,7 +51,16 @@ function Invoke-SafeUserTreeRemoval {
 
     $currentItem = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
     $isReparsePoint = ($currentItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
-    if ($isReparsePoint -or -not $currentItem.PSIsContainer) {
+    if ($isReparsePoint) {
+        if ($currentItem.PSIsContainer) {
+            [IO.Directory]::Delete($currentItem.FullName)
+        }
+        else {
+            [IO.File]::Delete($currentItem.FullName)
+        }
+        return
+    }
+    if (-not $currentItem.PSIsContainer) {
         Remove-Item -LiteralPath $currentItem.FullName -Force -ErrorAction Stop
         return
     }
